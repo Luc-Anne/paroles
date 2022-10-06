@@ -5,12 +5,12 @@ It's a VLC extension.
 Display lyrics from a lyrics folder.
 
 The main purpose is to display lyrics of current playing file based on :
-    - the same name file with suffix .lyr
-    - or its metadatas with suffix .lyr like artist - title.lyr
+- the same name file with suffix .lyr
+- or its metadatas with suffix .lyr like artist - title.lyr
 
 Features :
-    - Select lyrics in lyrics folder with suffix .lyr to display it.
-    - Open an editor to modify lyrics
+- Select lyrics in lyrics folder with suffix .lyr to display it.
+- Open an editor to modify lyrics
 
 # How-to install
 
@@ -22,5 +22,5 @@ Features :
 If lyrics doesn't display, right-click on playing file in vlc then Informations... to modify metadatas and match with your lyrics file.
 
 # Compatibility
-Linux
-VLC v3.0
+- Linux
+- VLC v3.0
