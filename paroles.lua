@@ -11,7 +11,7 @@ function descriptor()
 	return {
 		title = "Paroles";
         author = "Luc Anne";
-		shortdesc = "Display lyrics from Lyrics folder";
+		shortdesc = "Paroles";
 		description = "<center><b>Paroles</b></center>"
 		.. "Display lyrics from Lyrics folder";
         url = "https://github.com/Luc-Anne/paroles";
@@ -41,6 +41,7 @@ function init_dialog()
     
     dialog:add_button("Current music folder", open_current_music_folder, 1, 10, 1, 1)
     dialog:add_button("Lyrics folder", open_lyrics_folder, 2, 10, 1, 1)
+    message_wgt = dialog:add_label("", 3, 10, 1, 1)
     dialog:add_button("Modify those lyrics", modify_lyrics, 4, 10, 1, 1)
 
 	input_changed()
@@ -66,8 +67,12 @@ end
 
 -- Buttons events
 function display_lyrics_listening()
-    set_lyrics_listening_file()
-    display_lyrics()
+    if vlc.input.is_playing() then
+        set_lyrics_listening_file()
+        display_lyrics()
+    else
+        display_message_VLC_not_playing()
+    end
 end
 
 function display_lyrics_selected()
@@ -77,46 +82,47 @@ function display_lyrics_selected()
 end
 
 function open_current_music_folder()
-	io.popen(BROWSER.." '"..get_musique_path().."'")
-end
-
-function open_lyrics_folder()
-	io.popen(BROWSER.." '"..LYRICS_FOLDER.."'")
-end
-
-function modify_lyrics()
-	io.popen(EDITOR.." '"..lyrics_file.."'")
-end
-
--- 
-function display_lyrics()
-    if lyrics_file ~= "" then
-        title_wgt:set_text("<i>"..get_file_name(lyrics_file).."</i>")
-        lyrics_wgt:set_text("<h3>"..read_file(lyrics_file).."</h3>")
+    if vlc.input.is_playing() then
+        io.popen(BROWSER..' "'..get_listening_file_path()..'"')
     else
-        title_wgt:set_text("<i></i>")
-        lyrics_wgt:set_text("<h3></h3>")
+        display_message_VLC_not_playing()
     end
 end
 
-function get_musique_metadata(metadata)
-	local item = vlc.input.item()
-	if(item ~= nil) then
-		local metas = item:metas()
-		if metas[metadata] then
-			return metas[metadata]
-		else
-			return ""
-		end
-	end
+function open_lyrics_folder()
+	io.popen(BROWSER..' "'..LYRICS_FOLDER..'"')
+end
+
+function modify_lyrics()
+    if lyrics_file ~= "" then
+        io.popen(EDITOR.." '"..lyrics_file.."'")
+    else
+        -- Escape quotes whereas display a message saying : modify metadatas cause there are quotes in artist or title
+        io.popen(EDITOR.." '"..escape_character_in_quote(get_formatted_file_path()).."'")
+    end
+end
+
+-- 
+function display_message_VLC_not_playing()
+    message_wgt:set_text("<i>No file started in VLC</i>")
+end
+
+function display_lyrics()
+    if lyrics_file ~= "" then
+        title_wgt:set_text("<strong>"..get_file_name_LINUX(lyrics_file).."<strong>")
+        lyrics_wgt:set_text("<h3>"..get_lyrics(lyrics_file).."</h3>")
+        message_wgt:set_text("")
+    else
+        title_wgt:set_text("<strong>"..get_formatted_file_name().."<strong>")
+        lyrics_wgt:set_text("<h3></h3>")
+        message_wgt:set_text("<i>No lyrics found</i>")
+    end
 end
 
 function set_lyrics_listening_file()
 	local lyrics_listening_file = ""
-
     -- Try with audio file name
-    local musique_uri_without_ext = get_musique_filename(get_musique_uri())
-	local lyrics_listening_file = musique_uri_without_ext .. "." .. LYRICS_EXTENSION
+	local lyrics_listening_file = get_listening_file_path().."."..LYRICS_EXTENSION
 	local f = io.open(lyrics_listening_file, "rt")
 	if f~=nil then
         f:close()
@@ -124,7 +130,7 @@ function set_lyrics_listening_file()
         return
     end
     -- Try with metadatas
-    local lyrics_listening_file = LYRICS_FOLDER..get_musique_metadata("artist").." - "..get_musique_metadata("title").."."..LYRICS_EXTENSION
+    local lyrics_listening_file = get_formatted_file_path()
     local f = io.open(lyrics_listening_file, "rt")
     if f~=nil then
         f:close()
@@ -151,12 +157,26 @@ function fill_selection_lyrics_wgt()
 end
 
 -- File
-function read_file(path)
-	if path=="" then return "" end
+function get_listening_file_metadata(metadata)
+	local item = vlc.input.item()
+	if item~=nil then
+		local metas = item:metas()
+		if metas[metadata] then
+			return metas[metadata]
+		else
+			return ""
+		end
+	end
+    return ""
+end
+
+function get_lyrics(path)
     local file = io.open(path, "rt")
-    if file==nil then return "" end
+    if file==nil then
+        return ""
+    end
+
 	local content = ""
-	
 	for line in file:lines() do
         content = content..line.."<br />"
 	end
@@ -165,7 +185,7 @@ function read_file(path)
     return content
 end
 
-function get_musique_uri()
+function get_listening_file_uri()
     local item = vlc.item or vlc.input.item()
     if not item then
         return ""
@@ -175,22 +195,40 @@ function get_musique_uri()
 	return uri
 end
 
-function get_musique_filename()
-	return get_file_name(get_musique_uri())
+function get_listening_file_path()
+	return get_file_path(get_listening_file_uri())
 end
 
-function get_musique_path()
-	return get_file_path(get_musique_uri())
+function get_listening_file_filename()
+	return get_file_name_LINUX(get_listening_file_uri())
+end
+
+function get_formatted_file_path()
+	return LYRICS_FOLDER..get_formatted_file_name().."."..LYRICS_EXTENSION
+end
+
+function get_formatted_file_name()
+	return get_listening_file_metadata("artist").." - "..get_listening_file_metadata("title")
 end
 
 function get_file_path(uri)
+    return vlc.strings.make_path(uri)
+end
+
+function get_file_path_LINUX(uri)
 	uri = string.gsub(uri, "^file://", "")
 	uri = uri:match("/.*/")
     return uri
 end
 
-function get_file_name(uri)
+function get_file_name_LINUX(uri)
 	uri = uri:match("([^/]+)$")
+	uri = string.gsub(uri, "^(.+)%.%w+$", "%1")
+    return uri
+end
+
+function get_file_name_WINDOWS(uri)
+	uri = uri:match("([^\]+)$")
 	uri = string.gsub(uri, "^(.+)%.%w+$", "%1")
     return uri
 end
@@ -198,4 +236,13 @@ end
 function get_file_extention(uri)
 	uri = uri:match("([^.]+)$")
     return uri
+end
+
+function escape_character_in_quote(str)
+    for i = 1, string.len(str) do
+       if str:sub(i,i) == "'" then
+            str = str:sub(1, pos-1).." "..str:sub(pos+1)
+        end
+    end
+    return str
 end
